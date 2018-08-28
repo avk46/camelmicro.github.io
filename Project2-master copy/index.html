@@ -1,0 +1,714 @@
+<html>
+<head>
+	<title>INFO 3300 Project 2</title>
+	<link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
+
+	<style>
+	body{
+		background-color: #212020;
+		font-family: 'Montserrat', sans-serif;
+		color: white;
+	}
+	svg {
+		border: solid white 1px;
+	}
+
+	text{
+		font-family: 'Montserrat', sans-serif;
+		fill: white;
+		font-size: 15px;
+	}
+	path.country { fill: #fff; stroke: #888; }
+	#map {
+		display: block;
+		margin:auto;
+		background-color: rgba(24, 130, 144, 1);
+	}
+	h3{font-size:15.5pt;}
+
+	div.tooltip {
+		position: absolute;
+		text-align: center;
+		width: 250px;
+		height: 40px;
+		padding: 2px;
+		font: 12px 'Montserrat', sans-serif;
+		background: lightsteelblue;
+		border: 0px;
+		border-radius: 8px;
+		pointer-events: none;
+	}
+
+	.un_sel {
+		opacity: 0.5;
+	}
+
+	.sel {
+		opacity: 1;
+	}
+
+	.not_active {
+		opacity: 1;
+	}
+
+	li {
+		cursor: pointer;
+	}
+	path {
+	  stroke: #fff;
+	  fill-rule: evenodd;
+	}
+	.column {
+	  float: left;
+	}
+
+	.left {
+	    width: 25%;
+	}
+
+	.right {
+	    width: 75%;
+	}
+	.row{
+				margin-left: 5em;
+	}
+	hr {
+    display: block;
+		color:#fff;
+    border-width: 5px;
+		margin-bottom: 6em;
+}
+
+</style>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="https://d3js.org/d3.v4.min.js"></script>g
+<script src="https://d3js.org/topojson.v2.min.js"></script>
+<script src="https://d3js.org/d3-geo.v1.min.js"></script>
+<script src="https://d3js.org/d3-geo-projection.v1.min.js"></script>
+<script
+  src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+  integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+  crossorigin="anonymous"></script>
+</head>
+
+<body>
+	<div style="float: left; display:block; width:100%;">
+		<div style="font-size:2em; line-height: 45px; margin: 2em;width:25%; display:inline-block; padding-bottom:5em; ">
+			<h1 style="font-weight: 100;">Globalization</h1>
+			<h1 style="font-weight: 100;">and</h1>
+			<h1 style="font-weight: 100;">Dying</h1>
+			<h1 style="font-weight: 100;">Languages</h1>
+		</div>
+
+		<div style="float: right; display:inline-block; width:45%;margin:6em 6em;line-height: 20px;">
+			<h3>What makes a language a "Dead Language"?</h3>
+			<p>If no one can speak the language at all, it becomes an extinct language. We may
+				study "dead languages" through recordings or writing, but it remains "dead" or extinct
+				unless there are fluent speakers of the language.</p>
+				<p>It is estimated that a language dies every 14 days. We observe currently endangered
+				languages and the global trend of people replacing these languages with languages
+			 	from a small set of globally recognized "official" languages.</p>
+			</div>
+		</div>
+
+		<div id="visualization1" style="display:block; margin:5em; line-height:1.8;">
+			<h1>Extinct & Endangered Languages Mapped</h1>
+
+			<!-- Legend for risk levels -->
+			<div id="risk_levels" style="float: left;">
+				<h3>UNESCO'S Six Levels of Language Risk:</h3>
+				<ul style="font-size:14px;">
+					<li id="safe" class="un_sel" style="color:green; ">Safe:  <span style="color:white;">Widely spoken</span></li>
+					<li id="vuln" class="sel" style="color:#FFFF00; ">Vulnerable: <span style="color:white;">Not spoken by children outside the home (600 languages)</span></li>
+					<li id="def" class="sel" style="color:#FFCC00; ">Definitely endangered: <span style="color:white;">Children not speaking (646 languages)</span></li>
+					<li id="sev" class="sel" style="color:#FF9900; ">Severely endangered: <span style="color:white;">Only spoken by oldest generations (527 languages)</span></li>
+					<li id="crit" class="sel" style="color:#FF6600; ">Critically endangered: <span style="color:white;">Spoken by only a few members of the oldest</span></li>
+					<li id="ext" class="sel" style="color:#FF0000; ">Extinct: <span style="color:white;">No longer spoken</span></li>
+				</ul>
+			</div>
+
+			<!-- Legend for official languages -->
+			<div id="official_languages" style="float: right;">
+			<h3>UN'S Six Official Languages:</h3>
+			<ul style="font-size:14px;">
+				<li id="eng" class="sel" style="color:#1CACE1; ">English </li>
+				<li id="chi" class="sel" style="color:#F3E637; ">Chinese </li>
+				<li id="spa" class="sel" style="color:#D93A97; ">Spanish </li>
+				<li id="ara" class="sel" style="color:#4AB950; ">Arabic </li>
+				<li id="fre" class="sel" style="color:#836AAE; ">French </li>
+				<li id="rus" class="sel" style="color:#DE4C4D; ">Russian </li>
+			</ul>
+			</div>
+
+			<!-- svg to be used for the map -->
+			<svg id="map" height="600" width="1100"></svg><br><font size = "2" color="white" face="Montserrat">
+
+				<script>
+				// select and project world map
+				var svgMap = d3.select("#map");
+				var worldProjection = d3.geoNaturalEarth().center([0,15]);;
+				var pathGenerator = d3.geoPath().projection(worldProjection);
+
+				// initialize variables
+				var mapData;
+				var countries;
+				var languageData;
+				var languagePoints;
+
+				// get country id's for each color representing official languages
+				var blue=[356,586,516,894,72,716,710,834,566,384];  //engish second lang
+				var red=[398,643,112,417,762]; //russian
+				var yellow=[156]; //mandarin
+				var darkblue=[840,826,36,124];  //english
+				var purple=[466,562,384,854,180,140,270,324,686,266,120,178,250]; //french
+				var green=[682,887,512,275,12,818,434,788,504,760,422,400,706]; //arabic
+				var pink=[862,170,218,604,68,152,32,600,724,484,320,222,192,332,388]; //spanish
+
+
+				var g = svgMap.append("g");
+
+				// method to parse row from csv containing endangered language data
+				var parseRow = function(line) {
+
+					return{
+						Language: line["Name in English"], //name of the language
+						Latitude: Number(line["Latitude"]),
+						Longitude: Number(line["Longitude"]),
+						SpeakersNo: Number(line["Number of speakers"]),
+						Degree: line["Degree of endangerment"],
+						Country: line["Countries"],
+					}
+				};
+
+				// parse data files for the map
+				d3.queue()
+				.defer(d3.json, "world-50m.json")
+				.defer(d3.csv, "data.csv", parseRow)
+				.await(function(error, worldMapData, rawLanguage, USMapData){
+					mapData = worldMapData;
+					countries = topojson.feature(mapData, mapData.objects.countries);
+					languageData=rawLanguage;
+					languagePoints = dataPoints(languageData);
+					countryData = countryCalculations(languageData);
+					showMap(languagePoints,countries,countryData);
+				});
+
+				var colors=["#FF0000", "#FF6600", "#FF9900", "#FFCC00",  "#FFFF00"];
+
+				// function to sort language data retrieved from data file
+				var dataPoints = function(data){
+					var result = [];
+					data.forEach(function(d){
+						switch(d.Degree){
+							case "Extinct":
+							result.push([d.Longitude, d.Latitude, colors[0], d.Language, d.SpeakersNo, "Extinct"]);
+							break;
+							case "Critically endangered":
+							result.push([d.Longitude, d.Latitude, colors[1], d.Language, d.SpeakersNo, "Critical"]);
+							break;
+							case "Severely endangered":
+							result.push([d.Longitude, d.Latitude, colors[2], d.Language, d.SpeakersNo, "Severe"]);
+							break;
+							case "Definitely endangered":
+							result.push([d.Longitude, d.Latitude, colors[3], d.Language, d.SpeakersNo, "Definitely"]);
+							break;
+							case "Vulnerable":
+							result.push([d.Longitude, d.Latitude, colors[4], d.Language, d.SpeakersNo, "Vulnerable"]);
+							break;
+						}
+					});
+
+					return result;
+				}
+				//Data of each country
+				var countryCalculations = function(data){
+					var result = {}
+					data.forEach(function(d){
+						var country = d.Country;
+						country = country.split(", ")
+						for(var i = 0; i < country.length; ++i){
+							if(!result[country[i]])
+								result[country[i]] = [];
+								result[country[i]].push(d.Language);
+						}
+					});
+					return result;
+				}
+
+				//show Wworld map for the languages
+				function showMap(languagePoints,countries,countryData) {
+					//group together path and countries to display them
+					g.append("g")
+					.selectAll("path").data(countries.features)
+					.enter().append("path")
+					.attr("class","country")
+					.attr("d", pathGenerator)
+					.on("click", function(d){
+						console.log(countries);
+					});
+
+					// shade relevant contries
+					blue.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#88CEF0')
+					});
+					red.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#DE4C4D')
+					});
+					yellow.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#F3E637')
+					});
+
+					darkblue.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#1CACE1')
+					});
+					pink.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#D93A97')
+					});
+					green.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#4AB950')
+					});
+					purple.forEach(function(element) {
+						g.selectAll('path')
+						.filter(function(d) {
+							return d.id ===element
+						})
+						.style('fill', '#836AAE')
+					});
+
+					// Define the div for the tooltip
+					var div = d3.select("body").append("div")
+					.attr("class", "tooltip")
+					.style("opacity", 0);
+
+					languagePoints.forEach(function (points) {
+						svgMap.append("circle")
+						.attr("cx", worldProjection(points)[0])
+						.attr("cy", worldProjection(points)[1])
+						.attr("r", 3)
+						.attr("class", points[5])
+						.style("opacity", 0.8)
+						.style("fill", points[2])
+						.on("mouseover", function(d) {
+							div.transition()
+							.duration(200)
+							.style("opacity", .9);
+							div.html( points[3]+ "<br/>"  + "Number of Speakers: " + points[4])
+							.style("left", (d3.event.pageX) + "px")
+							.style("top", (d3.event.pageY - 28) + "px");
+						})
+						.on("mouseout", function(d) {
+							div.transition()
+							.duration(500)
+							.style("opacity", 0);
+						});
+					});
+				}
+
+				// function to zoom and pan the map
+				// citation: http://bl.ocks.org/nivas8292/bec8b161587cb62e9fda
+				var zoom = d3.behavior.zoom()
+				.scaleExtent([1,10])
+				.on("zoom", function () {
+					g.attr("transform", "translate(" + d3.event.translate.join(",") + ") scale(" + d3.event.scale + ")");
+					g.selectAll("path")
+					.attr("d", pathGenerator.projection(worldProjection));
+
+					svgMap.selectAll("circle")
+					.attr("transform", "translate(" + d3.event.translate.join(",") + ") scale(" + d3.event.scale + ")")
+					.transition()
+					.attr("r", 3 / d3.event.scale);
+				});
+				svgMap.call(zoom);
+
+				// functions to toggle between showing none and all circles
+				var safe_toggle = d3.select("#safe")
+				.on("click", function() {
+					var circle = d3.selectAll("circle");
+					if ($("#safe")[0].className == "un_sel") {
+						circle.style("opacity", 0);
+						$("#vuln").attr('class', 'un_sel');
+						$("#def").attr('class', 'un_sel');
+						$("#sev").attr('class', 'un_sel');
+						$("#crit").attr('class', 'un_sel');
+						$("#ext").attr('class', 'un_sel');
+					} else {
+						circle.style("opacity", 0.8);
+						$("#vuln").attr('class', 'sel');
+						$("#def").attr('class', 'sel');
+						$("#sev").attr('class', 'sel');
+						$("#crit").attr('class', 'sel');
+						$("#ext").attr('class', 'sel');
+					}
+					$("#safe").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding vulnerable circles
+				var vuln_toggle = d3.select("#vuln")
+				.on("click", function() {
+					var circle = d3.selectAll(".Vulnerable");
+					if ($("#vuln")[0].className == "sel") {
+						circle.style("opacity", 0);
+					} else {
+						circle.style("opacity", 0.8);
+					}
+					$("#vuln").toggleClass('un_sel sel');
+					$("#safe").attr('class', 'un_sel');
+				});
+
+				// functions to toggle between showing and hiding definitely endangered circles
+				var def_toggle = d3.select("#def")
+				.on("click", function() {
+					var circle = d3.selectAll(".Definitely");
+					if ($("#def")[0].className == "sel") {
+						circle.style("opacity", 0);
+					} else {
+						circle.style("opacity", 0.8);
+					}
+					$("#def").toggleClass('un_sel sel');
+					$("#safe").attr('class', 'un_sel');
+				});
+
+				// functions to toggle between showing and hiding severely endangered circles
+				var sev_toggle = d3.select("#sev")
+				.on("click", function() {
+					var circle = d3.selectAll(".Severe");
+					if ($("#sev")[0].className == "sel") {
+						circle.style("opacity", 0);
+					} else {
+						circle.style("opacity", 0.8);
+					}
+					$("#sev").toggleClass('un_sel sel');
+					$("#safe").attr('class', 'un_sel');
+				});
+
+				// functions to toggle between showing and hiding critically endangered circles
+				var crit_toggle = d3.select("#crit")
+				.on("click", function() {
+					var circle = d3.selectAll(".Critical");
+					if ($("#crit")[0].className == "sel") {
+						circle.style("opacity", 0);
+					} else {
+						circle.style("opacity", 0.8);
+					}
+					$("#crit").toggleClass('un_sel sel');
+					$("#safe").attr('class', 'un_sel');
+				});
+
+				// functions to toggle between showing and hiding extinct circles
+				var ext_toggle = d3.select("#ext")
+				.on("click", function() {
+					var circle = d3.selectAll(".Extinct");
+					if ($("#ext")[0].className == "sel") {
+						circle.style("opacity", 0);
+					} else {
+						circle.style("opacity", 0.8);
+					}
+					$("#ext").toggleClass('un_sel sel');
+					$("#safe").attr('class', 'un_sel');
+				});
+
+				// functions to toggle between showing and hiding definitely english countries
+				var eng_toggle = d3.select("#eng")
+				.on("click", function() {
+					if ($("#eng")[0].className == "sel") {
+						blue.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+
+						darkblue.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						blue.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#88CEF0')
+						});
+
+						darkblue.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#1CACE1')
+						});
+					}
+					$("#eng").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding chinese countries
+				var chi_toggle = d3.select("#chi")
+				.on("click", function() {
+					if ($("#chi")[0].className == "sel") {
+						yellow.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						yellow.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#F3E637')
+						});
+					}
+					$("#chi").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding spanish countries
+				var spa_toggle = d3.select("#spa")
+				.on("click", function() {
+					if ($("#spa")[0].className == "sel") {
+						pink.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						pink.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#D93A97')
+						});
+					}
+					$("#spa").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding arabic countries
+				var ara_toggle = d3.select("#ara")
+				.on("click", function() {
+					if ($("#ara")[0].className == "sel") {
+						green.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						green.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#4AB950')
+						});
+					}
+					$("#ara").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding definitely french countries
+				var fre_toggle = d3.select("#fre")
+				.on("click", function() {
+					if ($("#fre")[0].className == "sel") {
+						purple.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						purple.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#836AAE')
+						});
+					}
+					$("#fre").toggleClass('un_sel sel');
+				});
+
+				// functions to toggle between showing and hiding russian countries
+				var rus_toggle = d3.select("#rus")
+				.on("click", function() {
+					if ($("#rus")[0].className == "sel") {
+						red.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', 'white')
+						});
+					} else {
+						red.forEach(function(element) {
+							g.selectAll('path')
+							.filter(function(d) {
+								return d.id ===element
+							})
+							.style('fill', '#DE4C4D')
+						});
+					}
+					$("#rus").toggleClass('un_sel sel');
+				});
+
+				</script>
+
+			</div>
+			<hr>
+
+			<div class="row">
+			  <div class="column left">
+			    <h1> Click to see more details!</h1>
+			    <h2> Percentage of Endangered languages:</h2>
+			    <div id="percentage">100%</div>
+			    <h2> Region:</h2>
+			    <div id="explanation-name">World</div>
+
+			  </div>
+			  <div class="column right">
+			<div id="sunburst"></div>
+			</div>
+			</div>
+
+			<script>
+
+			var width = 960,
+			    height = 700,
+			    radius = Math.min(width, height) / 2;
+
+			var totalSize=2743;
+			var x = d3.scale.linear()
+			    .range([0, 2 * Math.PI]);
+
+			var y = d3.scale.linear()
+			    .range([0, radius]);
+
+			var color = d3.scale.category10();
+
+			var svg = d3.select("#sunburst").append("svg")
+			    .attr("width", width)
+			    .attr("height", height)
+			    .append("g")
+			    .attr("transform", "translate(" + (width / 2) + "," + (height / 2 + 10) + ")");
+
+			var partition = d3.layout.partition()
+			    .value(function(d) { return d.size; });
+
+			var arc = d3.svg.arc()
+			    .startAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
+			    .endAngle(function(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
+			    .innerRadius(function(d) { return Math.max(0, y(d.y)); })
+			    .outerRadius(function(d) { return Math.max(0, y(d.y + d.dy)); });
+
+			d3.json("flare.json", function(error, root) {
+			  var g = svg.selectAll("g")
+			      .data(partition.nodes(root))
+			    .enter().append("g");
+
+			  var path = g.append("path")
+			    .attr("d", arc)
+			    .style("fill", function(d) { return color((d.children ? d : d.parent).name); })
+			    .on("click", click);
+
+			  var text = g.append("text")
+			    .attr("transform", function(d) { return "rotate(" + computeTextRotation(d) + ")"; })
+			    .attr("x", function(d) { return y(d.y); })
+			    .attr("dx", "6") // margin
+			    .attr("dy", ".35em")
+					 // vertical-align
+			    .text(function(d) {return d.name; });
+
+
+
+
+			  function click(d) {
+			    var percentage = (d.value / totalSize).toPrecision(3);
+			    var percentageString = percentage + "%";
+			    // fade out all text elements
+
+
+			    d3.select("#percentage")
+			        .text(percentageString);
+
+			    d3.select("#explanation-name")
+			        .text(d.name);
+
+			    d3.select("#explanation")
+			        .style("visibility", "");
+
+			    text.transition().attr("opacity", 0);
+
+			    path.transition()
+			      .duration(750)
+			      .attrTween("d", arcTween(d))
+			      .on("end", function(e, i) {
+			          // check if the animated element's data e lies within the visible angle span given in d
+			          if (e.x >= d.x && e.x < (d.x + d.dx)) {
+			            // get a selection of the associated text element
+			            var arcText = d3.select(this.parentNode).select("text");
+			            // fade in the text element and recalculate positions
+			            arcText.transition().duration(750)
+			              .attr("opacity", 1)
+			              .attr("transform", function() { return "rotate(" + computeTextRotation(e) + ")" })
+			              .attr("x", function(d) { return y(d.y); });
+			          }
+			      });
+			  }
+			});
+
+			d3.select(self.frameElement).style("height", height + "px");
+
+			// Interpolate the scales!
+			function arcTween(d) {
+			  var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+			      yd = d3.interpolate(y.domain(), [d.y, 1]),
+			      yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+			  return function(d, i) {
+			    return i
+			        ? function(t) { return arc(d); }
+			        : function(t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+			  };
+			}
+
+			function computeTextRotation(d) {
+			  return (x(d.x + d.dx / 2) - Math.PI / 2) / Math.PI * 180;
+			}
+
+			</script>
+		</body>
+
+		</html>
